@@ -8,27 +8,75 @@ type User struct {
 }
 
 type Graph struct {
-	users       map[int]*User
-	connections map[int]map[int]bool
+	users          map[int]*User
+	connections    map[int]map[int]bool
+	connectionType map[int]map[int]Connection
 }
+
+// интерфейс Connection
+type Connection interface {
+	Type() string
+	Weight() int
+}
+
+// -----------------------------------
+type Friend struct {
+	Since string // Дата начала дружбы
+}
+
+func (f Friend) Type() string {
+	return "friend"
+}
+
+func (f Friend) Weight() int {
+	return 10
+}
+
+// -----------------------------------
+
+type Follower struct {
+	Notifications bool
+}
+
+func (f Follower) Type() string {
+	return "follower"
+}
+
+func (f Follower) Weight() int {
+	return 5
+}
+
+// -----------------------------------
+
+type Blocked struct {
+	Reason string
+}
+
+func (b Blocked) Type() string {
+	return "blocked"
+}
+
+func (b Blocked) Weight() int {
+	return -1
+}
+
+// -----------------------------------
 
 func NewGraph() *Graph {
 	return &Graph{
-		users:       make(map[int]*User),
-		connections: make(map[int]map[int]bool),
+		users:          make(map[int]*User),
+		connections:    make(map[int]map[int]bool),
+		connectionType: make(map[int]map[int]Connection),
 	}
-}
-
-func (g *Graph) NewGraph() *Graph {
-	graph := &Graph{users: make(map[int]*User),
-		connections: make(map[int]map[int]bool)}
-	return graph
 }
 
 func (g *Graph) AddUser(id int, name string) {
 	g.users[id] = &User{ID: id, Name: name}
 	if _, ok := g.connections[id]; !ok {
 		g.connections[id] = make(map[int]bool)
+	}
+	if _, ok := g.connectionType[id]; !ok {
+		g.connectionType[id] = make(map[int]Connection)
 	}
 }
 
@@ -51,9 +99,7 @@ func (g *Graph) AddConnection(fromID, toID int) bool {
 }
 
 func (g *Graph) GetConnections(userID int) []*User {
-
 	userConnections := []*User{}
-
 	if _, ok := g.users[userID]; !ok {
 		return userConnections
 	}
@@ -70,7 +116,6 @@ func (g *Graph) HasConnection(fromID, toID int) bool {
 	if _, ok := g.connections[fromID]; !ok {
 		return false
 	}
-
 	return g.connections[fromID][toID]
 }
 
@@ -165,6 +210,42 @@ func (g *Graph) GetAllUsers() []*User {
 	return result
 }
 
+func (g *Graph) AddTypedConnection(fromID, toID int, conn Connection) bool {
+
+	if _, ok := g.users[fromID]; !ok {
+		return false
+	}
+	if _, ok := g.users[toID]; !ok {
+		return false
+	}
+	g.connectionType[fromID][toID] = conn
+	g.connectionType[toID][fromID] = conn
+	return true
+}
+
+func (g *Graph) GetConnectionsByType(userID int, connType string) []*User {
+
+	var result []*User
+
+	if _, ok := g.users[userID]; !ok {
+		return result
+	}
+
+	for id, conn := range g.connectionType[userID] {
+
+		if conn.Type() == connType {
+			result = append(result, g.users[id])
+		}
+	}
+
+	return result
+}
+
+func (g *Graph) GetConnectionInfo(fromID, toID int) (Connection, bool) {
+	connection, ok := g.connectionType[fromID][toID]
+	return connection, ok
+}
+
 func main_task3() {
 	graph := NewGraph()
 
@@ -213,5 +294,14 @@ func main_task3() {
 
 	fmt.Printf("All users : %v\n",
 		graph.GetAllUsers())
+
+	newFriend := Friend{Since: "01-09-2004"}
+
+	fmt.Println(graph.AddTypedConnection(1, 2, newFriend))
+
+	fmt.Println(graph.GetConnectionsByType(1, "friend"))
+
+	fmt.Println(graph.GetConnectionInfo(1, 2))
+	fmt.Println(graph.GetConnectionInfo(1, 3))
 
 }
